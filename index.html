@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<body>
+	<link rel="stylesheet" href="index.css">
+<div class="live">
+
+	<img id="image" class="center">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.2/socket.io.js">
+</script>
+<script>
+	// Connecting socket.io to localhost
+	const socket = io.connect('http://localhost:5000',{
+		transports: ['websocket']
+	});
+	socket.on("connect_error", (err) => {
+  console.log(`connect_error due to ${err.message}`);
+	});
+	// listening to the image event in index.js
+	socket.on('image', (data)=>{
+		console.log('data', data);
+
+	// Now we are getting the image and
+	// displaying it via img tag
+	    const imageEle = document.getElementById('image');
+
+	// Also we are decoding the base64 encoding
+	// set in javascript file.
+	    imageEle.src = `data:image/jpeg;base64,${data}`;
+	});
+</script>
+</div>
+</body>
+</html>
