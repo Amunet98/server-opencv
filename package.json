@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@prisma/client": "^4.15.0",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
     "opencv4js": "^3.4.3",
     "opencv4nodejs": "^5.6.0",

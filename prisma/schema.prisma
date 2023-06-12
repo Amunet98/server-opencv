@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model anomaly_types {
+  name               String               @unique(map: "anomaly_types_un") @db.VarChar
+  id                 Int                  @id(map: "anomaly_types_pk") @default(autoincrement())
+  img                String?              @db.VarChar
+  description        String?              @db.VarChar
+  group              String?              @db.VarChar
+  detected_anomalies detected_anomalies[]
+}
+
+model detected_anomalies {
+  id            Int           @id(map: "detected_anomalies_pk") @default(autoincrement())
+  type_id       Int
+  img_frame     String?       @db.VarChar
+  time          DateTime      @default(now()) @db.Timestamptz(6)
+  anomaly_types anomaly_types @relation(fields: [type_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "detected_anomalies_fk")
+}
