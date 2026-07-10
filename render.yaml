@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: server-opencv
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: BACKEND_URL
+        value: https://human-anomaly-detection-backend.onrender.com
