@@ -125,3 +125,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+.env
+
+# archives / local backups
+*.zip
+*.tar.gz
+.prisma/
+*.jpg
