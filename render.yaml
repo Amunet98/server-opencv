@@ -8,4 +8,4 @@ services:
       - key: BACKEND_URL
         value: https://human-anomaly-detection-backend.onrender.com
       - key: FRAME_INTERVAL_MS
-        value: "200"
+        value: "500"
