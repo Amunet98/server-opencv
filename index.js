@@ -141,7 +141,12 @@ if (wCap) {
     } catch (err) {
       console.log("⚠️  Frame read failed:", err.message);
     }
-  }, 40); // 40ms interval yields a smooth 25 FPS stream without overloading your CPU
+    // 40ms (25 FPS) is fine on real hardware with a real camera, but on a
+    // CPU-throttled free-tier host it makes each tick's read+encode+emit
+    // fall behind the timer, so frames arrive in stalled bursts instead of
+    // smoothly. FRAME_INTERVAL_MS lets a constrained deployment ask for a
+    // lower, steadier frame rate instead.
+  }, parseInt(process.env.FRAME_INTERVAL_MS, 10) || 40);
 }
 
 const PORT = process.env.PORT || 5000;
