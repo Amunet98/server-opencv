@@ -1,5 +1,10 @@
 # Human Anomaly Detection — OpenCV Capture Service
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-bimeshpoudel.com.np-facc15)](https://www.bimeshpoudel.com.np/human-anomaly-live-demo)
+[![Node.js](https://img.shields.io/badge/Node.js-5fa04e?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![OpenCV](https://img.shields.io/badge/OpenCV-5c3ee8?logo=opencv)](https://opencv.org)
+[![Docker](https://img.shields.io/badge/Docker-2496ed?logo=docker&logoColor=white)](https://www.docker.com)
+
 Captures video (a physical webcam locally, or a looping sample clip when no
 camera is available — e.g. on a cloud host) and forwards frames as a
 socket.io client to the [backend](https://github.com/Amunet98/human-anomaly-detection-backend),
