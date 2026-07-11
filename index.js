@@ -135,7 +135,11 @@ if (wCap) {
         frame = wCap.read();
       }
       if (!frame.empty) {
-        const image = cv.imencode(".jpg", frame).toString("base64");
+        // Lower JPEG quality (default is ~95) cuts both encode time and
+        // payload size substantially with little visible difference at
+        // this resolution - on a CPU-throttled host, less work per frame
+        // means more frames survive each burst-credit window.
+        const image = cv.imencode(".jpg", frame, [cv.IMWRITE_JPEG_QUALITY, 60]).toString("base64");
         socket.emit("data", image);
       }
     } catch (err) {
