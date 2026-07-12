@@ -17,8 +17,17 @@ const { io: ioClient } = require("socket.io-client");
 // const { PrismaClient } = require("@prisma/client");
 // const prisma = new PrismaClient();
 
+// This service only exposes a status page (no sensitive data), but lock
+// CORS down anyway for consistency with the backend's policy.
+const ALLOWED_ORIGIN_PATTERNS = [
+  /^https:\/\/(www\.)?bimeshpoudel\.com\.np$/,
+  /^https:\/\/frontend-new-[a-z0-9-]+\.vercel\.app$/,
+  /^http:\/\/localhost:\d+$/,
+];
 var corsOptions = {
-  origin: "*",
+  origin: (origin, callback) => {
+    callback(null, !origin || ALLOWED_ORIGIN_PATTERNS.some((re) => re.test(origin)));
+  },
 };
 app.use(cors(corsOptions));
 
@@ -34,9 +43,12 @@ const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8081";
 // role=producer lets the backend tell this connection apart from real
 // viewer connections, so it only counts actual site visitors when deciding
 // whether anyone's watching (see 'stream-control' below).
+// Pairs with PRODUCER_TOKEN on the backend - proves this connection is the
+// real capture service, not just anyone sending ?role=producer. No-op until
+// PRODUCER_TOKEN is set to a matching value on both services.
 const socket = ioClient(BACKEND_URL, {
   transports: ["websocket", "polling"],
-  query: { role: "producer" },
+  query: { role: "producer", token: process.env.PRODUCER_TOKEN || "" },
 });
 
 socket.on("connect", () => {
@@ -98,42 +110,6 @@ app.get("/", (req, res) => {
   if (!wCap) return res.send("OpenCV camera service - no camera or sample video available");
   res.send(usingSampleVideo ? "OpenCV camera service - streaming sample video (no camera attached)" : "OpenCV camera service - camera active");
 });
-
-// COMMENTED OUT API ROUTES THAT DEPEND ON PRISMA
-/*
-app.get("/types", async (req, res) => {
-  try {
-    console.log(req.query.group);
-    if (req.query.group == null || undefined) {
-      res.send("error group pass not passed in params.");
-    }
-    var output;
-    if (req.query.group == "v") {
-      output = await prisma.anomaly_types.findMany({ where: { group: "v" } });
-      res.send(output);
-    } else if (req.query.group == "m") {
-      output = await prisma.anomaly_types.findMany({ where: { group: "m" } });
-      res.send(output);
-    } else if (req.query.group == "u") {
-      output = await prisma.anomaly_types.findMany({ where: { group: "u" } });
-      res.send(output);
-    } else {
-      res.send("pass group name");
-    }
-  } catch (error) {
-    console.log(error);
-    res.send("internal server error");
-  }
-});
-
-app.get("/detected", async (req, res) => {
-  const output = await prisma.detected_anomalies.findMany({
-    orderBy: { time: "desc" },
-    include: { anomaly_types: true },
-  });
-  res.send(output);
-});
-*/
 
 // Read and forward one camera (or sample video) frame to the backend.
 function captureAndSendFrame() {

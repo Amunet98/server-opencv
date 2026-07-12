@@ -9,3 +9,5 @@ services:
         value: https://human-anomaly-detection-backend.onrender.com
       - key: FRAME_INTERVAL_MS
         value: "500"
+      - key: PRODUCER_TOKEN
+        sync: false
