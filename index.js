@@ -31,8 +31,12 @@ app.use(cors(corsOptions));
 // and forwards frames to it, matching what the backend already expects
 // (it listens for 'data' and rebroadcasts as 'frame').
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8081";
+// role=producer lets the backend tell this connection apart from real
+// viewer connections, so it only counts actual site visitors when deciding
+// whether anyone's watching (see 'stream-control' below).
 const socket = ioClient(BACKEND_URL, {
   transports: ["websocket", "polling"],
+  query: { role: "producer" },
 });
 
 socket.on("connect", () => {
@@ -40,9 +44,17 @@ socket.on("connect", () => {
 });
 socket.on("disconnect", () => {
   console.log("🔌 Disconnected from backend, will auto-reconnect");
+  stopStreaming();
 });
 socket.on("connect_error", (err) => {
   console.log("⚠️  Could not reach backend:", err.message);
+});
+// Backend tells us whether any real viewer is currently connected - only
+// capture/send frames while someone's actually watching, instead of
+// streaming 24/7 into an empty room.
+socket.on("stream-control", ({ active }) => {
+  if (active) startStreaming();
+  else stopStreaming();
 });
 
 // --- Camera capture ---
@@ -123,34 +135,51 @@ app.get("/detected", async (req, res) => {
 });
 */
 
-// Read and forward camera (or sample video) frames to the backend
-if (wCap) {
-  setInterval(() => {
-    try {
-      let frame = wCap.read();
-      // Sample video reached its end - loop back to the first frame instead
-      // of leaving the stream frozen.
-      if (usingSampleVideo && frame.empty) {
-        wCap.set(cv.CAP_PROP_POS_FRAMES, 0);
-        frame = wCap.read();
-      }
-      if (!frame.empty) {
-        // Lower JPEG quality (default is ~95) cuts both encode time and
-        // payload size substantially with little visible difference at
-        // this resolution - on a CPU-throttled host, less work per frame
-        // means more frames survive each burst-credit window.
-        const image = cv.imencode(".jpg", frame, [cv.IMWRITE_JPEG_QUALITY, 60]).toString("base64");
-        socket.emit("data", image);
-      }
-    } catch (err) {
-      console.log("⚠️  Frame read failed:", err.message);
+// Read and forward one camera (or sample video) frame to the backend.
+function captureAndSendFrame() {
+  try {
+    let frame = wCap.read();
+    // Sample video reached its end - loop back to the first frame instead
+    // of leaving the stream frozen.
+    if (usingSampleVideo && frame.empty) {
+      wCap.set(cv.CAP_PROP_POS_FRAMES, 0);
+      frame = wCap.read();
     }
-    // 40ms (25 FPS) is fine on real hardware with a real camera, but on a
-    // CPU-throttled free-tier host it makes each tick's read+encode+emit
-    // fall behind the timer, so frames arrive in stalled bursts instead of
-    // smoothly. FRAME_INTERVAL_MS lets a constrained deployment ask for a
-    // lower, steadier frame rate instead.
-  }, parseInt(process.env.FRAME_INTERVAL_MS, 10) || 40);
+    if (!frame.empty) {
+      // Lower JPEG quality (default is ~95) cuts both encode time and
+      // payload size substantially with little visible difference at
+      // this resolution - on a CPU-throttled host, less work per frame
+      // means more frames survive each burst-credit window.
+      const image = cv.imencode(".jpg", frame, [cv.IMWRITE_JPEG_QUALITY, 60]).toString("base64");
+      socket.emit("data", image);
+    }
+  } catch (err) {
+    console.log("⚠️  Frame read failed:", err.message);
+  }
+}
+
+// 40ms (25 FPS) is fine on real hardware with a real camera, but on a
+// CPU-throttled free-tier host it makes each tick's read+encode+emit fall
+// behind the timer, so frames arrive in stalled bursts instead of smoothly.
+// FRAME_INTERVAL_MS lets a constrained deployment ask for a lower, steadier
+// frame rate instead.
+const FRAME_INTERVAL_MS = parseInt(process.env.FRAME_INTERVAL_MS, 10) || 40;
+let captureInterval = null;
+
+// Only runs while the backend says a real viewer is connected (see the
+// 'stream-control' handler above) - streaming 24/7 into an empty room was
+// the biggest single chunk of this service's Render bandwidth.
+function startStreaming() {
+  if (!wCap || captureInterval) return;
+  console.log('▶️  Viewer connected - starting frame stream');
+  captureInterval = setInterval(captureAndSendFrame, FRAME_INTERVAL_MS);
+}
+
+function stopStreaming() {
+  if (!captureInterval) return;
+  console.log('⏸️  No viewers - pausing frame stream');
+  clearInterval(captureInterval);
+  captureInterval = null;
 }
 
 const PORT = process.env.PORT || 5000;
