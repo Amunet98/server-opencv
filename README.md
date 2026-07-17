@@ -11,6 +11,11 @@ socket.io client to the [backend](https://github.com/Amunet98/human-anomaly-dete
 which runs inference and rebroadcasts to the frontend. This service does no
 detection itself — it's capture-and-forward only.
 
+It connects as `?role=producer` (authenticated by `PRODUCER_TOKEN`) and the
+backend replies with `stream-control {active}` based on how many viewers are
+connected — capture only runs while somebody is actually watching, so an
+idle deployment streams nothing.
+
 ## Setup
 
 ```bash
@@ -29,6 +34,7 @@ build it.
 | `BACKEND_URL` | where to forward captured frames (defaults to `http://localhost:8081`) |
 | `PORT` | health-check route port (default `5000`) |
 | `SAMPLE_VIDEO_PATH` | path to a video file to loop when no camera is attached (defaults to `sample.mp4` next to `index.js`) |
+| `PRODUCER_TOKEN` | shared secret proving this is the real capture service — must match the backend's `PRODUCER_TOKEN` |
 
 ### No-camera fallback
 
@@ -37,10 +43,17 @@ license-clear demo clip at `sample.mp4` in this directory (or point
 `SAMPLE_VIDEO_PATH` elsewhere) and the service will loop it instead, so a
 deployed instance still has a live-looking feed to demo.
 
+No `sample.mp4` is committed right now — the shared demo feed is
+deliberately paused (sustained inference was exceeding the free tier's
+memory); with no camera and no video file the service simply streams
+nothing. Re-adding a clip re-enables it, no code changes needed.
+
 ## Deploying
 
 Most PaaS buildpacks can't compile `@u4/opencv4nodejs` (it needs OpenCV's
 system dev libraries). Use the included `Dockerfile` — both Railway and
-Render support deploying from a Dockerfile directly. Set `BACKEND_URL` to
-the deployed backend's URL, and include a `sample.mp4` (see above) since
-there's no camera in the container.
+Render support deploying from a Dockerfile directly (production runs on
+Render, GitHub-connected: push to `main` auto-deploys). Set `BACKEND_URL`
+to the deployed backend's URL and `PRODUCER_TOKEN` to the same value as the
+backend, and include a `sample.mp4` (see above) since there's no camera in
+the container.
