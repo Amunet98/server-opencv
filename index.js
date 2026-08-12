@@ -111,17 +111,28 @@ app.get("/", (req, res) => {
   res.send(usingSampleVideo ? "OpenCV camera service - streaming sample video (no camera attached)" : "OpenCV camera service - camera active");
 });
 
+// Frame-error log throttling. See the catch in captureAndSendFrame().
+const FRAME_ERROR_LOG_INTERVAL_MS = 10_000;
+let lastFrameErrorLoggedAt = 0;
+let frameErrorCount = 0;
+
 // Read and forward one camera (or sample video) frame to the backend.
 function captureAndSendFrame() {
   try {
+    // read() is not guaranteed to hand back a Mat. A disconnected camera, a
+    // device the driver has stopped answering for, or a decode failure can all
+    // return null or undefined, and reading `.empty` off that throws. The
+    // throw was caught below, so the effect was not a crash — it was the same
+    // log line 25 times a second for as long as the condition lasted, which on
+    // a free tier is a lot of stderr for one broken webcam.
     let frame = wCap.read();
     // Sample video reached its end - loop back to the first frame instead
     // of leaving the stream frozen.
-    if (usingSampleVideo && frame.empty) {
+    if (usingSampleVideo && (!frame || frame.empty)) {
       wCap.set(cv.CAP_PROP_POS_FRAMES, 0);
       frame = wCap.read();
     }
-    if (!frame.empty) {
+    if (frame && !frame.empty) {
       // Lower JPEG quality (default is ~95) cuts both encode time and
       // payload size substantially with little visible difference at
       // this resolution - on a CPU-throttled host, less work per frame
@@ -130,7 +141,22 @@ function captureAndSendFrame() {
       socket.emit("data", image);
     }
   } catch (err) {
-    console.log("⚠️  Frame read failed:", err.message);
+    // Throttled, and deliberately. This runs on a timer, so any persistent
+    // failure repeats at the frame rate — the unthrottled version wrote the
+    // same line ~25 times a second for as long as the fault lasted, which
+    // buries everything else in the log and costs money on a metered host.
+    // One line when it starts, then a periodic count.
+    frameErrorCount += 1;
+    const now = Date.now();
+    if (now - lastFrameErrorLoggedAt > FRAME_ERROR_LOG_INTERVAL_MS) {
+      const repeats = frameErrorCount - 1;
+      console.log(
+        `⚠️  Frame read failed: ${err.message}` +
+          (repeats > 0 ? ` (${repeats} more since the last report)` : "")
+      );
+      lastFrameErrorLoggedAt = now;
+      frameErrorCount = 0;
+    }
   }
 }
 
