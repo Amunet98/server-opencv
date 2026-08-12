@@ -11,6 +11,16 @@ socket.io client to the [backend](https://github.com/Amunet98/human-anomaly-dete
 which runs inference and rebroadcasts to the frontend. This service does no
 detection itself — it's capture-and-forward only.
 
+One of three repos making up a system that started as my **final-year
+engineering project** and has since been rebuilt.
+
+A camera can stop handing back frames without erroring — a disconnected
+device, a driver that stops answering, a decode failure — and `read()` returns
+null rather than a frame in those cases. The capture loop null-checks it, and
+throttles the error log to one line per ten seconds with a count of what it
+swallowed: this runs on a 40ms timer, so an unthrottled failure wrote the same
+line 25 times a second for as long as the fault lasted.
+
 It connects as `?role=producer` (authenticated by `PRODUCER_TOKEN`) and the
 backend replies with `stream-control {active}` based on how many viewers are
 connected — capture only runs while somebody is actually watching, so an
